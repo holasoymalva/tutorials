@@ -83,17 +83,16 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="flex flex-col min-h-screen bg-gray-100">
       {/* Header */}
       <header className="bg-blue-600 text-white shadow-lg">
         <div className="container mx-auto px-4 py-6">
           <h1 className="text-3xl font-bold">Gestión de Usuarios</h1>
-          <p className="text-blue-100 mt-2">Proyecto educativo con React.js y Flask</p>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 flex-grow">
         {/* Mostrar errores si existen */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
@@ -126,7 +125,7 @@ function App() {
       {/* Footer */}
       <footer className="bg-gray-800 text-white mt-12">
         <div className="container mx-auto px-4 py-6 text-center">
-          <p>Proyecto educativo - Fundamentos de React.js</p>
+          <p>Fundamentos de React.js</p>
         </div>
       </footer>
     </div>
