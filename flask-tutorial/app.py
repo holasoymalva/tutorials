@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from config import Config
 from models import db, User
 
 # Crear la aplicación Flask
 app = Flask(__name__)
+
+CORS(app)
 
 # Cargar configuración
 app.config.from_object(Config)
@@ -177,4 +180,4 @@ def internal_error(error):
 
 if __name__ == '__main__':
     # Ejecutar en modo debug (solo para desarrollo)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8000)

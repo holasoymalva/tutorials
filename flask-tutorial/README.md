@@ -111,7 +111,7 @@ Este script:
 python app.py
 ```
 
-La API estará disponible en `http://localhost:5000`
+La API estará disponible en `http://localhost:8000`
 
 ### Estructura de la Base de Datos
 
@@ -233,6 +233,288 @@ DELETE /api/users/<id>
 }
 ```
 
+## Tutorial: Cómo Desarrollar Este Proyecto Paso a Paso
+
+Esta sección te guía para construir el proyecto desde cero, entendiendo cada componente.
+
+### Paso 1: Configurar el Entorno
+
+**1.1 Crear la carpeta del proyecto**
+```bash
+mkdir flask-intro
+cd flask-intro
+```
+
+**1.2 Crear entorno virtual**
+```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+```
+
+**1.3 Instalar Flask y SQLAlchemy**
+```bash
+pip install Flask==3.0.0 Flask-SQLAlchemy==3.1.1
+```
+
+**1.4 Crear archivo requirements.txt**
+```bash
+pip freeze > requirements.txt
+```
+
+### Paso 2: Crear el Archivo de Configuración (config.py)
+
+Crea `config.py` para centralizar la configuración:
+
+```python
+import os
+
+class Config:
+    """Configuración de la aplicación Flask"""
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+```
+
+**¿Qué hace este archivo?**
+- `SECRET_KEY`: Protege las sesiones y cookies
+- `SQLALCHEMY_DATABASE_URI`: Define dónde se guarda la base de datos
+- `SQLALCHEMY_TRACK_MODIFICATIONS`: Desactiva notificaciones innecesarias (mejora rendimiento)
+
+### Paso 3: Crear el Modelo de Datos (models.py)
+
+Crea `models.py` para definir la estructura de la base de datos:
+
+```python
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+class User(db.Model):
+    __tablename__ = 'user'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'email': self.email,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+```
+
+**Conceptos importantes:**
+- `db.Model`: Clase base para todos los modelos
+- `db.Column`: Define una columna en la tabla
+- `primary_key=True`: Identificador único autoincremental
+- `unique=True`: No permite valores duplicados
+- `nullable=False`: Campo obligatorio
+- `to_dict()`: Convierte el objeto a diccionario para JSON
+
+### Paso 4: Crear la Aplicación Principal (app.py)
+
+**4.1 Importar dependencias y configurar Flask**
+```python
+from flask import Flask, request, jsonify
+from config import Config
+from models import db, User
+
+app = Flask(__name__)
+app.config.from_object(Config)
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
+```
+
+**4.2 Crear endpoint GET para listar usuarios**
+```python
+@app.route('/api/users', methods=['GET'])
+def get_users():
+    try:
+        users = User.query.all()
+        return jsonify([user.to_dict() for user in users]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+```
+
+**4.3 Crear endpoint GET para un usuario específico**
+```python
+@app.route('/api/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        if user is None:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        return jsonify(user.to_dict()), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+```
+
+**4.4 Crear endpoint POST para crear usuarios**
+```python
+@app.route('/api/users', methods=['POST'])
+def create_user():
+    try:
+        data = request.get_json()
+        
+        if not data or 'name' not in data or 'email' not in data:
+            return jsonify({'error': 'Nombre y email son requeridos'}), 400
+        
+        existing_user = User.query.filter_by(email=data['email']).first()
+        if existing_user:
+            return jsonify({'error': 'El email ya está registrado'}), 400
+        
+        new_user = User(name=data['name'], email=data['email'])
+        db.session.add(new_user)
+        db.session.commit()
+        
+        return jsonify(new_user.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+```
+
+**4.5 Crear endpoint PUT para actualizar usuarios**
+```python
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        if user is None:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No se proporcionaron datos'}), 400
+        
+        if 'name' in data:
+            user.name = data['name']
+        if 'email' in data:
+            user.email = data['email']
+        
+        db.session.commit()
+        return jsonify(user.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+```
+
+**4.6 Crear endpoint DELETE para eliminar usuarios**
+```python
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    try:
+        user = User.query.get(user_id)
+        if user is None:
+            return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'Usuario eliminado exitosamente'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+```
+
+**4.7 Agregar punto de entrada**
+```python
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8000)
+```
+
+### Paso 5: Crear Script de Inicialización (init_db.py)
+
+Crea `init_db.py` para configurar la base de datos fácilmente:
+
+```python
+from app import app, db
+from models import User
+
+def init_database():
+    with app.app_context():
+        db.drop_all()
+        db.create_all()
+        print("✓ Base de datos creada")
+        
+        # Agregar usuarios de ejemplo
+        usuarios = [
+            User(name="Juan Pérez", email="juan@example.com"),
+            User(name="María García", email="maria@example.com"),
+            User(name="Carlos López", email="carlos@example.com")
+        ]
+        
+        for usuario in usuarios:
+            db.session.add(usuario)
+        db.session.commit()
+        print(f"✓ {len(usuarios)} usuarios agregados")
+
+if __name__ == '__main__':
+    print("🚀 Inicializando base de datos...")
+    init_database()
+    print("✅ Base de datos lista!")
+```
+
+### Paso 6: Crear .gitignore
+
+Crea `.gitignore` para no versionar archivos innecesarios:
+
+```
+__pycache__/
+*.pyc
+venv/
+instance/
+*.db
+.env
+```
+
+### Paso 7: Probar la Aplicación
+
+**7.1 Inicializar la base de datos**
+```bash
+python init_db.py
+```
+
+**7.2 Ejecutar el servidor**
+```bash
+python app.py
+```
+
+**7.3 Probar los endpoints**
+```bash
+# Listar usuarios
+curl http://localhost:8000/api/users
+
+# Crear usuario
+curl -X POST http://localhost:8000/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ana Martínez","email":"ana@example.com"}'
+
+# Obtener usuario específico
+curl http://localhost:8000/api/users/1
+
+# Actualizar usuario
+curl -X PUT http://localhost:8000/api/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Juan Pérez Actualizado"}'
+
+# Eliminar usuario
+curl -X DELETE http://localhost:8000/api/users/1
+```
+
+### Conceptos Aprendidos en Cada Paso
+
+**Paso 1-2**: Configuración de entorno y separación de concerns
+**Paso 3**: ORM, modelos de datos, y serialización
+**Paso 4**: Rutas, decoradores, métodos HTTP, y manejo de errores
+**Paso 5**: Inicialización de base de datos y datos de prueba
+**Paso 6**: Control de versiones y buenas prácticas
+**Paso 7**: Testing y validación de la API
+
 ## Conceptos Clave del Código
 
 ### 1. Decoradores de Ruta
@@ -265,31 +547,31 @@ Usar try-except para capturar y manejar errores de manera apropiada.
 
 ### Crear un usuario
 ```bash
-curl -X POST http://localhost:5000/api/users \
+curl -X POST http://localhost:8000/api/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Juan Pérez","email":"juan@example.com"}'
 ```
 
 ### Obtener todos los usuarios
 ```bash
-curl http://localhost:5000/api/users
+curl http://localhost:8000/api/users
 ```
 
 ### Obtener un usuario específico
 ```bash
-curl http://localhost:5000/api/users/1
+curl http://localhost:8000/api/users/1
 ```
 
 ### Actualizar un usuario
 ```bash
-curl -X PUT http://localhost:5000/api/users/1 \
+curl -X PUT http://localhost:8000/api/users/1 \
   -H "Content-Type: application/json" \
   -d '{"name":"Juan Pérez García","email":"juan.perez@example.com"}'
 ```
 
 ### Eliminar un usuario
 ```bash
-curl -X DELETE http://localhost:5000/api/users/1
+curl -X DELETE http://localhost:8000/api/users/1
 ```
 
 ## Reiniciar la Base de Datos
