@@ -1,8 +1,6 @@
-# Proyecto Educativo: React.js Frontend
+# Tutorial de React.js para Frontend
 
 Aplicación frontend React para aprender los fundamentos del desarrollo front-end consumiendo una API REST en Flask.
-
-## 📚 Documentación Educativa
 
 Lee el documento completo **"Fundamentos de Front End con React.js.md"** para una guía detallada de todos los conceptos de React utilizados en este proyecto.
 
